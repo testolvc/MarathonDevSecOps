@@ -6,7 +6,6 @@ on:
 
 permissions:
   contents: read
-  # security-events: write
 
 
 jobs:
@@ -38,7 +37,7 @@ jobs:
             ${{ runner.os }}-maven-
 
       - name: Build with Maven
-        run: mvn clean install # -DskipTests com.github.spotbugs:spotbugs-maven-plugin:3.1.12:spotbugs
+        run: mvn clean install
 
       # ======================================================
 
@@ -55,10 +54,9 @@ jobs:
 
       - name: Grype Dependency Scanner (Report)
         id: scan
-        uses: anchore/scan-action@be7a22da4f22dde446c4c4c099887ff5b256526c #previous: v5
+        uses: anchore/scan-action@be7a22da4f22dde446c4c4c099887ff5b256526c
         with:
           path: "."
-          #acs-report-enable: true
           fail-build: false # to always generate the report, then again a scan that might fail
 
       - name: Upload Grype SARIF Results
@@ -92,13 +90,12 @@ jobs:
       # ======================================================
 
       - name: Hadolint Dockerfile Linter
-        uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf #v3.1.0
+        uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf
         with:
           dockerfile: Dockerfile
           recursive: true
           no-fail: true
           format: sarif
-          #output-file: /tmp/hadolint-results.sarif # didn't work
 
       - name: Write HADOLINT_RESULTS to SARIF file
         run: echo "$HADOLINT_RESULTS" > /tmp/hadolint-results.sarif
@@ -117,16 +114,16 @@ jobs:
         run: touch .truffleignore
 
       - name: "Secret Scan with Trufflehog"
-        uses: trufflesecurity/trufflehog@ad258d848807ac956c978b391895800cb4237c1a # pinned via commit hash: 1.0.0
+        uses: trufflesecurity/trufflehog@ad258d848807ac956c978b391895800cb4237c1a
         continue-on-error: true # adjust on your needs to automatically fail or move to a separate workflow if needed
         with: # exclusions in .truffleignore file
           # Repository path
           path: ./
-          # Start scanning from here (usually main branch).
+          # Start scanning from here (usually main branch)
           base: ${{ github.head_ref }}
-          # Scan commits until here (usually dev branch).
+          # Scan commits until here (usually dev branch)
           #head: # optional
-          # Extra args to be passed to the trufflehog cli.
+          # Extra args to be passed to the trufflehog CLI
           extra_args: --exclude-paths=.truffleignore
 
 
@@ -137,7 +134,7 @@ jobs:
     name: Semgrep Scans
     runs-on: ubuntu-latest
     container:
-      # A Docker image with Semgrep installed. Do not change this.
+      # Official Docker image with Semgrep installed
       image: returntocorp/semgrep@sha256:8f85dbfb5d38592d0b916caac855cf18facba40674988caf763d52b9fe916694
     permissions:
       # required for all workflows
