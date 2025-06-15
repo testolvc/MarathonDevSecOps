@@ -23,7 +23,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          java-version: 17
+          java-version: 11
           distribution: 'temurin'
 
       - name: Setup Maven Dependency Cache
@@ -42,10 +42,10 @@ jobs:
 
       - name: Download OWASP ZAP # consider caching the downloaded ZAP if you like
         run: |
-          wget https://github.com/zaproxy/zaproxy/releases/download/v2.16.1/ZAP_2.16.1_Crossplatform.zip && \
-          unzip ZAP_2.16.1_Crossplatform.zip && \
-          rm ZAP_2.16.1_Crossplatform.zip && \
-          mv ZAP_2.16.1 ZAP && \
+          wget https://github.com/zaproxy/zaproxy/releases/download/v2.15.0/ZAP_2.15.0_Crossplatform.zip && \
+          unzip ZAP_2.15.0_Crossplatform.zip && \
+          rm ZAP_2.15.0_Crossplatform.zip && \
+          mv ZAP_2.15.0 ZAP && \
           cd ZAP
 
       - name: Start OWASP ZAP in Background
