@@ -186,6 +186,7 @@ jobs:
       - name: Install sarif-tools and convert SARIF to HTML
         run: | # Bonus idea: use "sarif trend" or "sarif diff" to compare results
           pip install sarif-tools
+          sarif summary sarif-input
           sarif html -o /tmp/summary.html sarif-input
 
       - name: Upload SARIF HTML Report
