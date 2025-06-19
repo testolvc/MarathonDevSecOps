@@ -4,8 +4,8 @@ on:
   #push: # not on push for the training (just manual)
   workflow_dispatch: # to allow running manually
 
-permissions:
-  contents: read
+#permissions: # removed to demo some finding
+#  contents: read
 
 
 jobs:
