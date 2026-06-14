@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  # security-events: write
 
 
 jobs:
@@ -17,18 +18,19 @@ jobs:
     steps:
 
       - name: Checkout Sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
+          fetch-depth: 1
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
           java-version: 11
           distribution: 'temurin'
 
       - name: Setup Maven Dependency Cache
-        uses: actions/cache@v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
@@ -36,43 +38,38 @@ jobs:
             ${{ runner.os }}-maven-
 
       - name: Build with Maven
-        run: mvn clean install
-
+        run: cd marathon || :; mvn clean install # -DskipTests com.github.spotbugs:spotbugs-maven-plugin:3.1.12:spotbugs
 
       # ======================================================
-
 
       - name: Generate CycloneDX SBOM
-        run: mvn org.cyclonedx:cyclonedx-maven-plugin:2.7.9:makeAggregateBom # outputs to target/bom.json and/or bom.xml
+        run: |
+          cd marathon || :; mvn org.cyclonedx:cyclonedx-maven-plugin:2.7.9:makeAggregateBom
+        # outputs to target/bom.json and/or bom.xml
 
       - name: Upload SBOM as Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: sbom-cyclonedx.json
-          path: target/bom.json
-
+          path: marathon/target/bom.json
 
       # ======================================================
-
 
       - name: Grype Dependency Scanner (Report)
         id: scan
-        uses: anchore/scan-action@be7a22da4f22dde446c4c4c099887ff5b256526c
+        uses: anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2 # v7.4.0
         with:
           path: "."
-          fail-build: false # to always generate the report, then again a scan that might fail
+          #acs-report-enable: true
+          fail-build: false # to always generate the report, can be set to true if you wish to fail the build on issues
 
       - name: Upload Grype SARIF Results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with: # Yep, you can open this file in your IDE: Just drag and drop it into IntelliJ IDEA or Visual Studio Code
           name: grype-scan-results.sarif
           path: ${{ steps.scan.outputs.sarif }}
 
-
-
       # ======================================================
-
-
 
       - name: Download SpotBugs CLI + FindSecBugs Rule Pack
         run: |
@@ -85,28 +82,25 @@ jobs:
 
       - name: Run SpotBugs CLI (SARIF)
         run: |
-          spotbugs/bin/spotbugs -sarif:/tmp/raw-spotbugs-output.txt -effort:max -low -auxclasspath lib:target/classes target/classes > /tmp/raw-spotbugs-output.txt
+          cd marathon || :; ../spotbugs/bin/spotbugs -sarif:/tmp/raw-spotbugs-output.txt -effort:max -low -auxclasspath lib:target/classes target/classes > /tmp/raw-spotbugs-output.txt
           grep -A100000 '{"version"' /tmp/raw-spotbugs-output.txt > /tmp/spotbugs-results.sarif
 
       - name: Upload SpotBugs SARIF Results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with: # Yep, you can open this file in your IDE: Just drag and drop it into IntelliJ IDEA or Visual Studio Code
           name: spotbugs-scan-results.sarif
           path: /tmp/spotbugs-results.sarif
 
-
-
       # ======================================================
 
-
-
       - name: Hadolint Dockerfile Linter
-        uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf
+        uses: hadolint/hadolint-action@2332a7b74a6de0dda2e2221d575162eba76ba5e5 # v3.3.0
         with:
           dockerfile: Dockerfile
           recursive: true
           no-fail: true
           format: sarif
+          #output-file: /tmp/hadolint-results.sarif # didn't work
 
       - name: Write HADOLINT_RESULTS to SARIF file
         run: echo "$HADOLINT_RESULTS" > /tmp/hadolint-results.sarif
@@ -114,31 +108,28 @@ jobs:
           HADOLINT_RESULTS: ${{ env.HADOLINT_RESULTS }}
 
       - name: Upload Hadolint SARIF Results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with: # Yep, you can open this file in your IDE: Just drag and drop it into IntelliJ IDEA or Visual Studio Code
           name: hadolint-scan-results.sarif
           path: /tmp/hadolint-results.sarif
 
-
       # ======================================================
-
 
       - name: Create empty ".truffleignore" in case it doesn't exist
         run: touch .truffleignore
 
       - name: "Secret Scan with Trufflehog"
-        uses: trufflesecurity/trufflehog@ad258d848807ac956c978b391895800cb4237c1a
+        uses: trufflesecurity/trufflehog@37b77001d0174ebec2fcca2bd83ff83a6d45a3ab # v3.95.3
         continue-on-error: true # adjust on your needs to automatically fail or move to a separate workflow if needed
         with: # exclusions in .truffleignore file
           # Repository path
           path: ./
-          # Start scanning from here (usually main branch)
+          # Start scanning from here (usually main branch).
           base: ${{ github.head_ref }}
-          # Scan commits until here (usually dev branch)
+          # Scan commits until here (usually dev branch).
           #head: # optional
-          # Extra args to be passed to the trufflehog CLI
+          # Extra args to be passed to the trufflehog cli.
           extra_args: --exclude-paths=.truffleignore --no-verification
-
 
 
   # ======================================================
@@ -148,8 +139,8 @@ jobs:
     name: Semgrep Scans
     runs-on: ubuntu-latest
     container:
-      # Official Docker image with Semgrep installed
-      image: returntocorp/semgrep@sha256:8f85dbfb5d38592d0b916caac855cf18facba40674988caf763d52b9fe916694
+      # A Docker image with Semgrep installed. Do not change this.
+      image: semgrep/semgrep@sha256:207983631beecdbe7fa29196c7f4a7a5f29033933cdb76c687ce4a672e07618d # 1.164.0
     permissions:
       # required for all workflows
       security-events: write
@@ -157,20 +148,20 @@ jobs:
       actions: read
       contents: read
 
-
     steps:
 
       - name: Checkout Sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
+          fetch-depth: 1
 
       - name: Run Semgrep using selected rules (metrics off)
         run: |
           semgrep scan --sarif --config auto . --output /tmp/semgrep-results.sarif || true
 
       - name: Upload Semgrep SARIF Results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with: # Yep, you can open this file in your IDE: Just drag and drop it into IntelliJ IDEA or Visual Studio Code
           name: semgrep-scan-results.sarif
           path: /tmp/semgrep-results.sarif
@@ -189,7 +180,7 @@ jobs:
     steps:
 
       - name: Download all SARIF artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: sarif-input
 
@@ -206,14 +197,12 @@ jobs:
           sarif html -o /tmp/summary.html sarif-input
 
       - name: Upload SARIF HTML Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: summary.html
           path: /tmp/summary.html
 
-
       # ======================================================
-
 
       - name: Write SBOM Summary to GitHub Step Summary
         run: | # Bonus idea: use "curl" to post to you local Dependency-Track instance
