@@ -82,7 +82,7 @@ jobs:
 
       - name: Run SpotBugs CLI (SARIF)
         run: |
-          cd marathon || :; ../spotbugs/bin/spotbugs -sarif:/tmp/raw-spotbugs-output.txt -effort:max -low -auxclasspath lib:target/classes target/classes > /tmp/raw-spotbugs-output.txt
+          spotbugs/bin/spotbugs -sarif:/tmp/raw-spotbugs-output.txt -effort:max -low -auxclasspath lib:target/classes target/classes > /tmp/raw-spotbugs-output.txt
           grep -A100000 '{"version"' /tmp/raw-spotbugs-output.txt > /tmp/spotbugs-results.sarif
 
       - name: Upload SpotBugs SARIF Results
